@@ -106,6 +106,34 @@ class Point(Mark):  # TODO types
         )
         ax.add_collection(points)
 
+    def _legend_handle(self, variables, value):
+
+        key = {v: value for v in variables}
+
+        # TODO do we need to abstract "get feature kwargs"?
+        marker = self._resolve(key, "marker")
+        path = marker.get_path().transformed(marker.get_transform())
+
+        edgecolor = self._resolve_color(key)
+        facecolor = self._resolve_color(key, "fill")
+
+        fill = self._resolve(key, "fill") and marker.is_filled()
+        if not fill:
+            facecolor = tuple([*facecolor[:3], 0])
+
+        linewidth = self._resolve(key, "linewidth")
+        pointsize = self._resolve(key, "pointsize")
+        size = pointsize ** 2
+
+        return mpl.collections.PathCollection(
+            paths=[path],
+            sizes=[size],
+            facecolors=[facecolor],
+            edgecolors=[edgecolor],
+            linewidths=[linewidth],
+            transform=mpl.transforms.IdentityTransform(),
+        )
+
 
 class Line(Mark):
 

@@ -574,6 +574,9 @@ class Plot:
         for layer in plotter._layers:
             plotter._plot_layer(self, layer)
 
+        # TODO should this go here?
+        plotter._make_legend()  # TODO does this return?
+
         # TODO this should be configurable
         if not plotter._figure.get_constrained_layout():
             plotter._figure.set_tight_layout(True)
@@ -601,6 +604,7 @@ class Plotter:
     def __init__(self, pyplot=False):
 
         self.pyplot = pyplot
+        self._legend_data = []
 
     def save(self, fname, **kwargs) -> Plotter:
         # TODO type fname as string or path; handle Path objects if matplotlib can't
@@ -933,6 +937,31 @@ class Plotter:
 
                 mark._plot(split_generator)
 
+        # TODO Is this the right place for the legend update to happen?
+        # Probably at least put in a method ...
+        # TODO Add check for whether legend is disabled for this layer
+        # TODO Add removal of semantic variables where legend is disabled
+        legend_vars = data.frame.columns.intersection(self._mappings)
+        legend_schema = []
+        for var in legend_vars:
+            entries = self._scales[var].legend_data()
+            for part_vars, part_entries in legend_schema:
+                if entries == part_entries:
+                    part_vars.append(var)
+                    break
+            else:
+                legend_schema.append(([var], entries))
+
+        with mark.use(self._mappings, None):  # TODO will we ever need orient?
+            legend_handles = []
+            for variables, values in legend_schema:
+                handles = []
+                for val in values:
+                    handles.append(mark._legend_handle(variables, val))
+                legend_handles.append((tuple(variables), handles, values))
+
+        self._legend_data.append(legend_handles)
+
     def _apply_stat(
         self,
         df: DataFrame,
@@ -1128,3 +1157,45 @@ class Plotter:
                     yield sub_vars, df_subset.copy(), subplot["ax"]
 
         return split_generator
+
+    def _make_legend(self) -> None:  # TODO what is return type?
+
+        from itertools import chain
+
+        # XXX ignoring multiple layers for a sec
+        legend_data, = self._legend_data
+
+        legend_data = {}
+        for variables, handles, labels in chain(*self._legend_data):
+            if variables in legend_data:
+                for i, handle in legend_data[variables][0]:
+                    if isinstance(handle, tuple):
+                        handle += handles[i],
+                    else:
+                        handle = handle, handles[i]
+                    legend_data[variables][0][i] = handle
+                assert labels == legend_data[variables][1]
+            else:
+                legend_data[variables] = handles, labels
+
+        legend = None
+        for variables, (handles, labels) in legend_data.items():
+
+            unique_names = []
+            for v in variables:
+                name = self._data.names[v]
+                if name not in unique_names:
+                    unique_names.append(name)
+            # TODO what actually should we do here if len(unique_names) > 1?
+            # It can't really happen in current seaborn.
+            title = "/".join(unique_names)
+
+            legend = mpl.legend.Legend(
+                self._figure,
+                handles,
+                labels,
+                title=title,
+                # loc="center right",
+                # bbox_to_anchor=(1, .5),
+            )
+            self._figure.legends.append(legend)

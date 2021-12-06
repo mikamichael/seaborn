@@ -132,6 +132,10 @@ class Scale:
         array = transform(data.to_numpy())
         return pd.Series(array, data.index, name=data.name)
 
+    def legend_values(self) -> list:
+        # TODO make this a property, or does it need args?
+        raise NotImplementedError
+
 
 class NumericScale(Scale):
     """Scale appropriate for numeric data; can apply mathematical transformations."""
@@ -206,6 +210,17 @@ class CategoricalScale(Scale):
         array = np.full_like(strings, np.nan, float)
         array[mask] = axis.convert_units(strings[mask].to_numpy())
         return pd.Series(array, data.index, name=data.name)
+
+    def legend_data(self) -> list:
+
+        if self.order is None:
+            # TODO Decide what do do about need to access private _mapping
+            # Options:
+            # - Get matplotlib to make this public (they seem open)
+            # - We only need this when using internal mock Axis, so could deal
+            # - Do something more complicated to track order during convert
+            return list(self.axis.units._mapping.keys())
+        return self.order
 
 
 class DateTimeScale(Scale):
