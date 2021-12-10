@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import re
 import io
+import re
 import itertools
 from copy import deepcopy
 from distutils.version import LooseVersion
@@ -604,7 +604,7 @@ class Plotter:
     def __init__(self, pyplot=False):
 
         self.pyplot = pyplot
-        self._legend_data = []
+        self._legend_contents = []
 
     def save(self, fname, **kwargs) -> Plotter:
         # TODO type fname as string or path; handle Path objects if matplotlib can't
@@ -937,30 +937,7 @@ class Plotter:
 
                 mark._plot(split_generator)
 
-        # TODO Is this the right place for the legend update to happen?
-        # Probably at least put in a method ...
-        # TODO Add check for whether legend is disabled for this layer
-        # TODO Add removal of semantic variables where legend is disabled
-        legend_vars = data.frame.columns.intersection(self._mappings)
-        legend_schema = []
-        for var in legend_vars:
-            entries = self._scales[var].legend_data()
-            for part_vars, part_entries in legend_schema:
-                if entries == part_entries:
-                    part_vars.append(var)
-                    break
-            else:
-                legend_schema.append(([var], entries))
-
-        with mark.use(self._mappings, None):  # TODO will we ever need orient?
-            legend_handles = []
-            for variables, values in legend_schema:
-                handles = []
-                for val in values:
-                    handles.append(mark._legend_handle(variables, val))
-                legend_handles.append((tuple(variables), handles, values))
-
-        self._legend_data.append(legend_handles)
+        self._update_legend_contents(mark, data)
 
     def _apply_stat(
         self,
@@ -1158,44 +1135,64 @@ class Plotter:
 
         return split_generator
 
+    def _update_legend_contents(self, mark: Mark, data: PlotData) -> None:
+
+        legend_vars = data.frame.columns.intersection(self._mappings)
+        legend_schema = []
+
+        for var in legend_vars:
+            entries = self._scales[var].legend_data()
+            for part_name, part_vars, part_entries in legend_schema:
+                # TODO switch to data.ids, a dictionary mapping variables to one of:
+                # - name, when available
+                # - id(data), otherwise
+                # (this needs to be created in _core.data)
+                if data.names[var] == part_name:
+                    part_vars.append(var)
+                    break
+            else:
+                legend_schema.append((data.names[var], [var], entries))
+
+        with mark.use(self._mappings, None):  # TODO will we ever need orient?
+            legend_handles = []
+            for name, variables, values in legend_schema:
+                handles = []
+                for val in values:
+                    handles.append(mark._legend_handle(variables, val))
+                legend_handles.append((name, handles, values))
+
+        self._legend_contents.append(legend_handles)
+
     def _make_legend(self) -> None:  # TODO what is return type?
 
-        from itertools import chain
-
-        # XXX ignoring multiple layers for a sec
-        legend_data, = self._legend_data
-
-        legend_data = {}
-        for variables, handles, labels in chain(*self._legend_data):
-            if variables in legend_data:
-                for i, handle in legend_data[variables][0]:
+        merged_contents = {}
+        for name, handles, labels in itertools.chain(*self._legend_contents):
+            if name in merged_contents:
+                existing_handles, existing_labels = merged_contents[name]
+                for i, handle in enumerate(existing_handles):
                     if isinstance(handle, tuple):
                         handle += handles[i],
                     else:
                         handle = handle, handles[i]
-                    legend_data[variables][0][i] = handle
-                assert labels == legend_data[variables][1]
+                    existing_handles[i] = handle
+                assert labels == merged_contents[name][1]  # TODO just for dev
             else:
-                legend_data[variables] = handles, labels
+                merged_contents[name] = handles, labels
 
-        legend = None
-        for variables, (handles, labels) in legend_data.items():
-
-            unique_names = []
-            for v in variables:
-                name = self._data.names[v]
-                if name not in unique_names:
-                    unique_names.append(name)
-            # TODO what actually should we do here if len(unique_names) > 1?
-            # It can't really happen in current seaborn.
-            title = "/".join(unique_names)
+        base_legend = None
+        for name, (handles, labels) in merged_contents.items():
 
             legend = mpl.legend.Legend(
                 self._figure,
                 handles,
                 labels,
-                title=title,
-                # loc="center right",
-                # bbox_to_anchor=(1, .5),
+                title=name,
+                loc="upper right",
+                # bbox_to_anchor=(.98, .98),
             )
-            self._figure.legends.append(legend)
+
+            if base_legend:
+                base_legend._legend_box._children.extend(legend._legend_box._children)
+            else:
+                base_legend = legend
+                self._figure.legends.append(legend)
