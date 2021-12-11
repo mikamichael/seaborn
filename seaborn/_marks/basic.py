@@ -182,6 +182,18 @@ class Line(Mark):
         )
         ax.add_line(line)
 
+    def _legend_handle(self, variables, value):
+
+        key = {v: value for v in variables}
+
+        return mpl.lines.Line2D(
+            [], [],
+            color=self._resolve_color(key),
+            linewidth=self._resolve(key, "linewidth"),
+            linestyle=self._resolve(key, "linestyle"),
+            marker=self._resolve(key, "marker"),
+        )
+
 
 class Area(Mark):
 
