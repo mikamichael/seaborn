@@ -1141,46 +1141,42 @@ class Plotter:
         legend_schema = []
 
         for var in legend_vars:
-            entries = self._scales[var].legend_data()
-            for part_name, part_vars, part_entries in legend_schema:
-                # TODO switch to data.ids, a dictionary mapping variables to one of:
-                # - name, when available
-                # - id(data), otherwise
-                # (this needs to be created in _core.data)
-                if data.names[var] == part_name:
+            entries = self._mappings[var].legend_data()
+            for part_name, part_id, part_vars, part_entries in legend_schema:
+                if data.ids[var] == part_id:
                     part_vars.append(var)
                     break
             else:
-                legend_schema.append((data.names[var], [var], entries))
+                legend_schema.append((data.names[var], data.ids[var], [var], entries))
 
         with mark.use(self._mappings, None):  # TODO will we ever need orient?
-            legend_handles = []
-            for name, variables, values in legend_schema:
-                handles = []
+            legend_contents = []
+            for *key, variables, values in legend_schema:
+                artists = []
                 for val in values:
-                    handles.append(mark._legend_handle(variables, val))
-                legend_handles.append((name, handles, values))
+                    artists.append(mark._legend_artist(variables, val))
+                legend_contents.append((tuple(key), artists, values))
 
-        self._legend_contents.append(legend_handles)
+        self._legend_contents.append(legend_contents)
 
     def _make_legend(self) -> None:  # TODO what is return type?
 
         merged_contents = {}
-        for name, handles, labels in itertools.chain(*self._legend_contents):
-            if name in merged_contents:
-                existing_handles, existing_labels = merged_contents[name]
+        for key, handles, labels in itertools.chain(*self._legend_contents):
+            if key in merged_contents:
+                existing_handles, existing_labels = merged_contents[key]
                 for i, handle in enumerate(existing_handles):
                     if isinstance(handle, tuple):
                         handle += handles[i],
                     else:
                         handle = handle, handles[i]
                     existing_handles[i] = handle
-                assert labels == merged_contents[name][1]  # TODO just for dev
+                assert labels == merged_contents[key][1]  # TODO just for dev
             else:
-                merged_contents[name] = handles, labels
+                merged_contents[key] = handles, labels
 
         base_legend = None
-        for name, (handles, labels) in merged_contents.items():
+        for (name, _), (handles, labels) in merged_contents.items():
 
             legend = mpl.legend.Legend(
                 self._figure,
