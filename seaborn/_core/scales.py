@@ -95,7 +95,7 @@ class Scale:
         out = copy(self)
         out.norm = copy(self.norm)
         if axis is None:
-            axis = DummyAxis()
+            axis = DummyAxis(self)
         axis.update_units(self._units_seed(data).to_numpy())
         out.axis = axis
         out.normalize(data)  # Autoscale norm if unset
@@ -132,9 +132,11 @@ class Scale:
         array = transform(data.to_numpy())
         return pd.Series(array, data.index, name=data.name)
 
-    def legend_values(self) -> list:
-        # TODO make this a property, or does it need args?
-        raise NotImplementedError
+    def legend_data(self) -> list:
+
+        locs = self.axis.major.locator()
+        locs = locs[(locs >= self.norm.vmin) & (locs <= self.norm.vmax)]
+        return locs, self.axis.major.formatter.format_ticks(locs)
 
 
 class NumericScale(Scale):
@@ -213,14 +215,13 @@ class CategoricalScale(Scale):
 
     def legend_data(self) -> list:
 
-        if self.order is None:
-            # TODO Decide what do do about need to access private _mapping
-            # Options:
-            # - Get matplotlib to make this public (they seem open)
-            # - We only need this when using internal mock Axis, so could deal
-            # - Do something more complicated to track order during convert
-            return list(self.axis.units._mapping.keys())
-        return self.order
+        # TODO use attached axis with something like this:
+        # Does this work for mappings? Would need to pass data through scale in setup
+        # formatter.format_ticks(locator())
+
+        locs = self.axis.major.locator()
+        values = self.axis.major.formatter.format_ticks(locs)
+        return values, None
 
 
 class DateTimeScale(Scale):
@@ -293,9 +294,55 @@ class DummyAxis:
     code, this object acts like an Axis and can be used to scale other variables.
 
     """
-    def __init__(self):
+    axis_name = ""  # TODO Needs real value? Just used for x/y logic in matplotlib
+
+    def __init__(self, scale):
+
         self.converter = None
         self.units = None
+        self.major = mpl.axis.Ticker()
+
+        self.scale = scale
+        scale.scale_obj.set_default_locators_and_formatters(self)
+
+    def set_view_interval(self, vmin, vmax):
+        # TODO this gets called when setting DateTime units,
+        # but we may not need it to do anything
+        pass
+
+    def get_view_interval(self):
+        return self.scale.norm.vmin, self.scale.norm.vmax
+
+    # TODO do we want to distinguish view/data intervals? e.g. for a legend
+    # we probably want to represent the full range of the data values, but
+    # still norm the colormap. If so, we'll need to track data range separately
+    # from the norm, which we currently don't do.
+
+    def set_data_interval(self, vmin, vmax):
+        pass
+
+    def get_data_interval(self):
+        return self.scale.norm.vmin, self.scale.norm.vmax
+
+    def get_tick_space(self):
+        # TODO how to do this in a configurable / auto way?
+        # Would be cool to have legend density adapt to figure size, etc.
+        return 5
+
+    def set_major_locator(self, locator):
+        self.major.locator = locator
+        locator.set_axis(self)
+
+    def set_major_formatter(self, formatter):
+        # TODO matplotlib method does more handling (e.g. to set w/format str)
+        self.major.formatter = formatter
+        formatter.set_axis(self)
+
+    def set_minor_locator(self, locator):
+        pass
+
+    def set_minor_formatter(self, formatter):
+        pass
 
     def set_units(self, units):
         self.units = units
@@ -305,6 +352,19 @@ class DummyAxis:
         self.converter = mpl.units.registry.get_converter(x)
         if self.converter is not None:
             self.converter.default_units(x, self)
+
+            info = self.converter.axisinfo(self.units, self)
+
+            if info is None:
+                return
+            if info.majloc is not None:
+                # TODO matplotlib method has more conditions here; are they needed?
+                self.set_major_locator(info.majloc)
+            if info.majfmt is not None:
+                self.set_major_formatter(info.majfmt)
+
+            # TODO this is in matplotlib method; do we need this?
+            # self.set_default_intervals() 
 
     def convert_units(self, x):
         """Return a numeric representation of the input data."""
