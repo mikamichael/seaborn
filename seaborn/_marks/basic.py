@@ -106,7 +106,7 @@ class Point(Mark):  # TODO types
         )
         ax.add_collection(points)
 
-    def _legend_handle(self, variables, value):
+    def _legend_artist(self, variables, value):
 
         key = {v: value for v in variables}
 
@@ -182,7 +182,7 @@ class Line(Mark):
         )
         ax.add_line(line)
 
-    def _legend_handle(self, variables, value):
+    def _legend_artist(self, variables, value):
 
         key = {v: value for v in variables}
 
