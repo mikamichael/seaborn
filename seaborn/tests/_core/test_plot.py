@@ -64,6 +64,13 @@ class MockMark(Mark):
         # TODO update the test that uses this
         self.passed_mappings.append(self.mappings)
 
+    def _legend_artist(self, variables, value):
+
+        a = mpl.artist.Artist()
+        a.variables = variables
+        a.value = value
+        return a
+
 
 class TestInit:
 
@@ -1400,6 +1407,6 @@ class TestLabelVisibility:
             assert all(t.get_visible() for t in ax.get_yticklabels())
 
 
-# TODO Current untested includes:
-# - anything having to do with semantic mapping
-# - any important corner cases in the original test_core suite
+class TestLegend:
+
+    ...

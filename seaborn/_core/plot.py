@@ -937,7 +937,8 @@ class Plotter:
 
                 mark._plot(split_generator)
 
-        self._update_legend_contents(mark, data)
+        with mark.use(self._mappings, None):  # TODO will we ever need orient?
+            self._update_legend_contents(mark, data)
 
     def _apply_stat(
         self,
@@ -1136,46 +1137,55 @@ class Plotter:
         return split_generator
 
     def _update_legend_contents(self, mark: Mark, data: PlotData) -> None:
-
+        """Add legend artists / labels for one layer in the plot."""
         legend_vars = data.frame.columns.intersection(self._mappings)
-        legend_schema = []
 
+        # First pass: Identify the values that will be shown for each variable
+        schema = []
         for var in legend_vars:
+            # TODO see note below about needing values and labels
             values, labels = self._mappings[var].legend_data()
-            for (_, part_id), part_vars, _ in legend_schema:
+            for (_, part_id), part_vars, _ in schema:
                 if data.ids[var] == part_id:
+                    # Allow multiple plot semantics to represent same data variable
                     part_vars.append(var)
                     break
             else:
                 entry = (data.names[var], data.ids[var]), [var], (values, labels)
-                legend_schema.append(entry)
+                schema.append(entry)
 
-        with mark.use(self._mappings, None):  # TODO will we ever need orient?
-            legend_contents = []
-            for key, variables, (values, labels) in legend_schema:
-                artists = []
-                for val in values:
-                    artists.append(mark._legend_artist(variables, val))
-                # TODO The labels/values thing is needed because we key the mapping with
-                # the "label" in LookupMapping. This could be simplified, maybe.
-                entry = key, artists, values if labels is None else labels
-                legend_contents.append(entry)
+        # Second pass, generate an artist corresponding to each value
+        contents = []
+        for key, variables, (values, labels) in schema:
+            artists = []
+            for val in values:
+                artists.append(mark._legend_artist(variables, val))
+            # TODO The labels/values thing is needed because we key the mapping with
+            # the "label" in LookupMapping. This could be simplified, maybe.
+            entry = key, artists, labels
+            contents.append(entry)
 
-        self._legend_contents.append(legend_contents)
+        self._legend_contents.extend(contents)
 
     def _make_legend(self) -> None:  # TODO what is return type?
-
+        """Create the legend artist(s) and add onto the figure."""
+        # Combine artists representing same information across layers
+        # Input list has an entry for each distinct variable in each layer
+        # Output dict has an entry for each distinct variable
         merged_contents = {}
-        for key, artists, labels in itertools.chain(*self._legend_contents):
+        for key, artists, labels in self._legend_contents:
+            # Key is (name, id); we need the id to resolve variable uniqueness,
+            # but will need the name in the next step to title the legend
             if key in merged_contents:
                 existing_artists, _ = merged_contents[key]
                 for i, artist in enumerate(existing_artists):
+                    # Matplotlib accepts a tuple of artists and will overlay them
                     if isinstance(artist, tuple):
                         artist += artist[i],
                     else:
                         artist = artist, artists[i]
+                    # Update list that is a value in the merged_contents dict in place
                     existing_artists[i] = artist
-                assert labels == merged_contents[key][1]  # TODO just for dev
             else:
                 merged_contents[key] = artists, labels
 
@@ -1191,6 +1201,9 @@ class Plotter:
                 # bbox_to_anchor=(.98, .98),
             )
 
+            # TODO: This is an illegal hack accessing private attributes on the legend
+            # We need to sort out how we are going to handle this given that lack of a
+            # proper API to do things like position legends relative to each other
             if base_legend:
                 base_legend._legend_box._children.extend(legend._legend_box._children)
             else:
