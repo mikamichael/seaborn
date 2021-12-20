@@ -99,6 +99,14 @@ class Scale:
         axis.update_units(self._units_seed(data).to_numpy())
         out.axis = axis
         out.normalize(data)  # Autoscale norm if unset
+        if isinstance(axis, DummyAxis):
+            # TODO This is a little awkward but I think we want to avoid doing this
+            # to an actual Axis (unclear whether using Axis machinery in bits and
+            # pieces is a good design, though)
+            num_data = out.convert(data)
+            axis.set_view_interval(num_data.min(), num_data.max())
+            # TODO need to understand what view_interval/data_interval are for
+            axis.set_data_interval(num_data.min(), num_data.max())
         return out
 
     def cast(self, data: Series) -> Series:
@@ -132,11 +140,17 @@ class Scale:
         array = transform(data.to_numpy())
         return pd.Series(array, data.index, name=data.name)
 
-    def legend_data(self) -> list:
+    def legend(self, values: list | None = None) -> tuple[list, list[str]]:
 
-        locs = self.axis.major.locator()
-        locs = locs[(locs >= self.norm.vmin) & (locs <= self.norm.vmax)]
-        return locs, self.axis.major.formatter.format_ticks(locs)
+        if values is None:
+            values = list(self.axis.major.locator())
+        # TODO subset within data_limits
+        locs = self.convert(pd.Series(values))
+        vmin, vmax = self.axis.get_view_interval()
+        # TODO is this overly-agressive about cutting? Should we allow margins?
+        locs = locs[(vmin <= locs) & (locs <= vmax)]
+        labels = list(self.axis.major.formatter.format_ticks(locs))
+        return values, labels
 
 
 class NumericScale(Scale):
@@ -171,6 +185,7 @@ class CategoricalScale(Scale):
         super().__init__(scale_obj, None)
         self.order = order
         self.formatter = formatter
+        # TODO use axis Formatter for nice batched formatting? Requires reorg
 
     def _units_seed(self, data: Series) -> Series:
         """Representative values passed to matplotlib's update_units method."""
@@ -213,16 +228,6 @@ class CategoricalScale(Scale):
         array[mask] = axis.convert_units(strings[mask].to_numpy())
         return pd.Series(array, data.index, name=data.name)
 
-    def legend_data(self) -> list:
-
-        # TODO use attached axis with something like this:
-        # Does this work for mappings? Would need to pass data through scale in setup
-        # formatter.format_ticks(locator())
-
-        locs = self.axis.major.locator()
-        values = self.axis.major.formatter.format_ticks(locs)
-        return values, None
-
 
 class DateTimeScale(Scale):
     """Scale appropriate for datetimes; can be normed but not otherwise transformed."""
@@ -263,6 +268,9 @@ class IdentityScale(Scale):
     def __init__(self):
         super().__init__(None, None)
 
+    def setup(self, data: Series) -> Scale:
+        return self
+
     def cast(self, data: Series) -> Series:
         """Return input data."""
         return data
@@ -301,17 +309,18 @@ class DummyAxis:
         self.converter = None
         self.units = None
         self.major = mpl.axis.Ticker()
-
         self.scale = scale
+
         scale.scale_obj.set_default_locators_and_formatters(self)
+        # self.set_default_intervals()  TODO mock?
 
     def set_view_interval(self, vmin, vmax):
         # TODO this gets called when setting DateTime units,
         # but we may not need it to do anything
-        pass
+        self._view_interval = vmin, vmax
 
     def get_view_interval(self):
-        return self.scale.norm.vmin, self.scale.norm.vmax
+        return self._view_interval
 
     # TODO do we want to distinguish view/data intervals? e.g. for a legend
     # we probably want to represent the full range of the data values, but
@@ -319,10 +328,10 @@ class DummyAxis:
     # from the norm, which we currently don't do.
 
     def set_data_interval(self, vmin, vmax):
-        pass
+        self._data_interval = vmin, vmax
 
     def get_data_interval(self):
-        return self.scale.norm.vmin, self.scale.norm.vmax
+        return self._data_interval
 
     def get_tick_space(self):
         # TODO how to do this in a configurable / auto way?
@@ -364,7 +373,7 @@ class DummyAxis:
                 self.set_major_formatter(info.majfmt)
 
             # TODO this is in matplotlib method; do we need this?
-            # self.set_default_intervals() 
+            # self.set_default_intervals()
 
     def convert_units(self, x):
         """Return a numeric representation of the input data."""

@@ -308,7 +308,7 @@ class Plot:
         # TODO if we define default semantics, we can use that
         # for initialization and make this more abstract (assuming kwargs match?)
         self._semantics["color"] = ColorSemantic(palette)
-        self._scale_from_map("facecolor", palette, order)
+        self._scale_from_map("color", palette, order)
         return self
 
     def map_alpha(
@@ -604,7 +604,9 @@ class Plotter:
     def __init__(self, pyplot=False):
 
         self.pyplot = pyplot
-        self._legend_contents = []
+        self._legend_contents: list[
+            tuple[str, str | int], list[str], tuple[list[Any], list[str]]
+        ] = []
 
     def save(self, fname, **kwargs) -> Plotter:
         # TODO type fname as string or path; handle Path objects if matplotlib can't
@@ -1143,8 +1145,12 @@ class Plotter:
         # First pass: Identify the values that will be shown for each variable
         schema = []
         for var in legend_vars:
+            # TODO probably do this somewhere else once we have an API
+            # for controlling whether or not to show the legend
+            if isinstance(self._scales[var], IdentityScale):
+                continue
             # TODO see note below about needing values and labels
-            values, labels = self._mappings[var].legend_data()
+            values, labels = self._mappings[var].legend
             for (_, part_id), part_vars, _ in schema:
                 if data.ids[var] == part_id:
                     # Allow multiple plot semantics to represent same data variable
