@@ -4,6 +4,11 @@ import matplotlib as mpl
 
 from seaborn._marks.base import Mark, Feature
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import Any
+    from matplotlib.artist import Artist
+
 
 class Point(Mark):  # TODO types
 
@@ -106,7 +111,7 @@ class Point(Mark):  # TODO types
         )
         ax.add_collection(points)
 
-    def _legend_artist(self, variables, value):
+    def _legend_artist(self, variables: list[str], value: Any) -> Artist:
 
         key = {v: value for v in variables}
 
@@ -119,7 +124,7 @@ class Point(Mark):  # TODO types
 
         fill = self._resolve(key, "fill") and marker.is_filled()
         if not fill:
-            facecolor = tuple([*facecolor[:3], 0])
+            facecolor = facecolor[0], facecolor[1], facecolor[2], 0
 
         linewidth = self._resolve(key, "linewidth")
         pointsize = self._resolve(key, "pointsize")

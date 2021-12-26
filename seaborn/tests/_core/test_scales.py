@@ -117,6 +117,23 @@ class TestNumeric:
         with pytest.raises(TypeError, match=err):
             scale = NumericScale(scale, norm=norm)
 
+    def test_legend(self, scale):
+
+        x = pd.Series(np.arange(2, 11))
+        s = NumericScale(scale, None).setup(x)
+        values, labels = s.legend()
+        assert values == [2, 4, 6, 8, 10]
+        assert labels == ["2", "4", "6", "8", "10"]
+
+    def test_legend_given_values(self, scale):
+
+        x = pd.Series(np.arange(2, 11))
+        s = NumericScale(scale, None).setup(x)
+        given_values = [3, 6, 7]
+        values, labels = s.legend(given_values)
+        assert values == given_values
+        assert labels == [str(v) for v in given_values]
+
 
 class TestCategorical:
 

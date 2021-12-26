@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable, Hashable
     from pandas import DataFrame, Series, Index
     from matplotlib.axes import Axes
+    from matplotlib.artist import Artist
     from matplotlib.color import Normalize
     from matplotlib.figure import Figure, SubFigure
     from matplotlib.scale import ScaleBase
@@ -605,7 +606,7 @@ class Plotter:
 
         self.pyplot = pyplot
         self._legend_contents: list[
-            tuple[str, str | int], list[str], tuple[list[Any], list[str]]
+            tuple[str, str | int], list[Artist], list[str],
         ] = []
 
     def save(self, fname, **kwargs) -> Plotter:
@@ -1143,22 +1144,22 @@ class Plotter:
         legend_vars = data.frame.columns.intersection(self._mappings)
 
         # First pass: Identify the values that will be shown for each variable
+        schema: list[tuple[
+            tuple[str | None, str | int], list[str], tuple[list, list[str]]
+        ]] = []
         schema = []
         for var in legend_vars:
-            # TODO probably do this somewhere else once we have an API
-            # for controlling whether or not to show the legend
-            if isinstance(self._scales[var], IdentityScale):
-                continue
-            # TODO see note below about needing values and labels
-            values, labels = self._mappings[var].legend
-            for (_, part_id), part_vars, _ in schema:
-                if data.ids[var] == part_id:
-                    # Allow multiple plot semantics to represent same data variable
-                    part_vars.append(var)
-                    break
-            else:
-                entry = (data.names[var], data.ids[var]), [var], (values, labels)
-                schema.append(entry)
+            var_legend = self._mappings[var].legend
+            if var_legend is not None:
+                values, labels = var_legend
+                for (_, part_id), part_vars, _ in schema:
+                    if data.ids[var] == part_id:
+                        # Allow multiple plot semantics to represent same data variable
+                        part_vars.append(var)
+                        break
+                else:
+                    entry = (data.names[var], data.ids[var]), [var], (values, labels)
+                    schema.append(entry)
 
         # Second pass, generate an artist corresponding to each value
         contents = []
@@ -1166,8 +1167,7 @@ class Plotter:
             artists = []
             for val in values:
                 artists.append(mark._legend_artist(variables, val))
-            entry = key, artists, labels
-            contents.append(entry)
+            contents.append((key, artists, labels))
 
         self._legend_contents.extend(contents)
 
@@ -1176,7 +1176,9 @@ class Plotter:
         # Combine artists representing same information across layers
         # Input list has an entry for each distinct variable in each layer
         # Output dict has an entry for each distinct variable
-        merged_contents = {}
+        merged_contents: dict[
+            tuple[str | None, str | int], tuple[list[Artist], list[str]],
+        ] = {}
         for key, artists, labels in self._legend_contents:
             # Key is (name, id); we need the id to resolve variable uniqueness,
             # but will need the name in the next step to title the legend

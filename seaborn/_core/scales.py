@@ -142,10 +142,14 @@ class Scale:
 
     def legend(self, values: list | None = None) -> tuple[list, list[str]]:
 
+        # TODO decide how we want to allow more control over the legend
+        # (e.g., how we could accept a Locator object, or specified number of ticks)
+        # If we move towards a gradient legend for continuous mappings (as I'd like),
+        # it will complicate the value -> label mapping that this assumes.
+
         if values is None:
             values = list(self.axis.major.locator())
-        # TODO subset within data_limits
-        locs = self.convert(pd.Series(values))
+        locs = self.convert(pd.Series(values)).to_numpy()
         vmin, vmax = self.axis.get_view_interval()
         # TODO is this overly-agressive about cutting? Should we allow margins?
         locs = locs[(vmin <= locs) & (locs <= vmax)]
@@ -268,7 +272,7 @@ class IdentityScale(Scale):
     def __init__(self):
         super().__init__(None, None)
 
-    def setup(self, data: Series) -> Scale:
+    def setup(self, data: Series, axis: Axis | None = None) -> Scale:
         return self
 
     def cast(self, data: Series) -> Series:

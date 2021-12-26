@@ -330,7 +330,7 @@ class ColorSemantic(Semantic):
         data: Series,
         palette: PaletteSpec,
         order: list | None,
-    ) -> dict[Any, RGBTuple | RGBATuple]:
+    ) -> tuple[dict[Any, RGBTuple | RGBATuple], list]:
         """Determine colors when the mapping is categorical."""
         levels = categorical_order(data, order)
         n_colors = len(levels)
@@ -616,6 +616,8 @@ class EdgeWidthSemantic(ContinuousSemantic):
 
 class SemanticMapping:
     """Stateful and callable object that maps data values to matplotlib arguments."""
+    legend: tuple[list, list[str]] | None
+
     def __call__(self, x: Any) -> Any:
         raise NotImplementedError
 
@@ -624,6 +626,7 @@ class IdentityMapping(SemanticMapping):
     """Return input value, possibly after converting to standardized representation."""
     def __init__(self, func: Callable[[Any], Any]):
         self._standardization_func = func
+        self.legend = None
 
     def __call__(self, x: Any) -> Any:
         return self._standardization_func(x)
@@ -649,7 +652,12 @@ class LookupMapping(SemanticMapping):
 
 class NormedMapping(SemanticMapping):
     """Continuous mapping defined by domain normalization and range transform."""
-    def __init__(self, transform: Callable[[Series], Any], scale: Scale, legend: list):
+    def __init__(
+        self,
+        transform: Callable[[Series], Any],
+        scale: Scale,
+        legend: tuple[list, list[str]]
+    ):
         self.transform = transform
         self.scale = scale
         self.legend = legend
