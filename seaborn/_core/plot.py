@@ -1166,8 +1166,6 @@ class Plotter:
             artists = []
             for val in values:
                 artists.append(mark._legend_artist(variables, val))
-            # TODO The labels/values thing is needed because we key the mapping with
-            # the "label" in LookupMapping. This could be simplified, maybe.
             entry = key, artists, labels
             contents.append(entry)
 
@@ -1183,7 +1181,8 @@ class Plotter:
             # Key is (name, id); we need the id to resolve variable uniqueness,
             # but will need the name in the next step to title the legend
             if key in merged_contents:
-                existing_artists, _ = merged_contents[key]
+                # Copy so inplace updates don't propagate back to legend_contents
+                existing_artists = merged_contents[key][0].copy()
                 for i, artist in enumerate(existing_artists):
                     # Matplotlib accepts a tuple of artists and will overlay them
                     if isinstance(artist, tuple):
@@ -1202,7 +1201,7 @@ class Plotter:
                 self._figure,
                 handles,
                 labels,
-                title=name,
+                title=name,  # TODO don't show "None" as title
                 loc="upper right",
                 # bbox_to_anchor=(.98, .98),
             )
