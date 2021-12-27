@@ -140,16 +140,22 @@ class Scale:
         array = transform(data.to_numpy())
         return pd.Series(array, data.index, name=data.name)
 
-    def legend(self, values: list | None = None) -> tuple[list, list[str]]:
+    def legend(self, values: list | None = None) -> tuple[list[Any], list[str]]:
 
         # TODO decide how we want to allow more control over the legend
         # (e.g., how we could accept a Locator object, or specified number of ticks)
         # If we move towards a gradient legend for continuous mappings (as I'd like),
         # it will complicate the value -> label mapping that this assumes.
 
+        # TODO also, decide whether it would be cleaner to define a more structured
+        # class for the return value; the type signatures for the components of the
+        # legend pipeline end up extremely complicated.
+
         if values is None:
             values = list(self.axis.major.locator())
-        locs = self.convert(pd.Series(values)).to_numpy()
+            locs = np.array(values)
+        else:
+            locs = self.convert(pd.Series(values)).to_numpy()
         vmin, vmax = self.axis.get_view_interval()
         # TODO is this overly-agressive about cutting? Should we allow margins?
         locs = locs[(vmin <= locs) & (locs <= vmax)]

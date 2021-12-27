@@ -222,6 +222,22 @@ class TestCategorical:
         s = CategoricalScale(scale, order, format).setup(x)
         assert_series_equal(s.convert(x), pd.Series([1., 2., 0.]))
 
+    def test_legend(self, scale):
+
+        x = pd.Series(["a", "b", "c", "d"])
+        s = CategoricalScale(scale, None, format).setup(x)
+        values, labels = s.legend()
+        assert values == [0, 1, 2, 3]
+        assert labels == ["a", "b", "c", "d"]
+
+    def test_legend_given_values(self, scale):
+
+        x = pd.Series(["a", "b", "c", "d"])
+        s = CategoricalScale(scale, None, format).setup(x)
+        given_values = ["b", "d", "c"]
+        values, labels = s.legend(given_values)
+        assert values == labels == given_values
+
 
 class TestDateTime:
 
@@ -313,6 +329,8 @@ class TestDateTime:
         expected = pd.Series(mpl.dates.datestr2num(x))
         ax = mpl.figure.Figure().subplots()
         assert_series_equal(s.convert(x, ax.xaxis), expected)
+
+    # TODO test legend, but defer until we figure out the default locator/formatter
 
 
 class TestIdentity:

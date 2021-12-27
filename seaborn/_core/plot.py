@@ -504,8 +504,10 @@ class Plot:
         # We should pass kwargs to the DateTime cast probably.
         # Should we also explicitly expose more of the pd.to_datetime interface?
 
-        # It will be nice to have more control over the formatting of the ticks
-        # which is pretty annoying in standard matplotlib.
+        # TODO also we should be able to set the formatter here
+        # (well, and also in the other scale methods)
+        # But it's especially important here because the default matplotlib formatter
+        # is not very nice, and we don't need to be bound by that
 
         return self
 
