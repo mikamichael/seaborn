@@ -65,10 +65,12 @@ SEMANTICS = {  # TODO should this be pluggable?
     "alpha": AlphaSemantic(),
     "fillalpha": AlphaSemantic(variable="fillalpha"),
     "edgecolor": ColorSemantic(variable="edgecolor"),
+    "edgealpha": AlphaSemantic(variable="edgealpha"),
     "fill": BooleanSemantic(values=None, variable="fill"),
     "marker": MarkerSemantic(),
     "linestyle": LineStyleSemantic(),
     "linewidth": LineWidthSemantic(),
+    "edgewidth": LineWidthSemantic(variable="edgewidth"),
     "pointsize": PointSizeSemantic(),
 
     # TODO we use this dictionary to access the standardize_value method
