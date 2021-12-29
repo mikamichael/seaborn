@@ -28,7 +28,8 @@ class Feature:
         depend: str | None = None,
         rc: str | None = None
     ):
-        """Class supporting several default strategies for setting visual features.
+        """
+        Class supporting several default strategies for setting visual features.
 
         Parameters
         ----------

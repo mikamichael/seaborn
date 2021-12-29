@@ -42,6 +42,40 @@ class Scatter(Mark):
 
         self.jitter = jitter  # TODO decide on form of jitter and add type hinting
 
+    def _adjust(self, df):
+
+        if self.jitter is None:
+            return df
+
+        rng = np.random.default_rng()  # TODO seed?
+
+        def jitter(values, width):
+            extent = width / 2
+            return values + rng.uniform(-extent, +extent, len(values))
+
+        return df.assign(
+            x=jitter(df["x"], self.jitter[0]),
+            y=jitter(df["y"], self.jitter[1])
+        )
+
+    def _resolve_paths(self, data):
+
+        paths = []
+        path_cache = {}
+        marker = self._resolve(data, "marker")
+
+        def get_transformed_path(m):
+            return m.get_path().transformed(m.get_transform())
+
+        if isinstance(marker, mpl.markers.MarkerStyle):
+            return get_transformed_path(marker)
+
+        for m in marker:
+            if m not in path_cache:
+                path_cache[m] = get_transformed_path(m)
+            paths.append(path_cache[m])
+        return paths
+
     def _plot_split(self, keys, data, ax, kws):
 
         # TODO Not backcompat with allowed (but nonfunctional) univariate plots
@@ -50,9 +84,10 @@ class Scatter(Mark):
 
         kws = kws.copy()
 
-        markers = self._resolve(data, "marker")
+        paths = self._resolve_paths(data)
+
         fill = self._resolve(data, "fill")
-        fill & np.array([m.is_filled() for m in markers])
+        fill & np.array([m.is_filled() for m in self._resolve(data, "marker")])
 
         edgecolors = self._resolve_color(data)
         facecolors = self._resolve_color(data, "fill")
@@ -60,13 +95,6 @@ class Scatter(Mark):
 
         linewidths = self._resolve(data, "linewidth")
         pointsize = self._resolve(data, "pointsize")
-
-        paths = []
-        path_cache = {}
-        for m in markers:
-            if m not in path_cache:
-                path_cache[m] = m.get_path().transformed(m.get_transform())
-            paths.append(path_cache[m])
 
         sizes = pointsize ** 2
         offsets = data[["x", "y"]].to_numpy()
@@ -89,7 +117,7 @@ class Scatter(Mark):
 
         # TODO do we need to abstract "get feature kwargs"?
         marker = self._resolve(key, "marker")
-        path = marker.get_path().transformed(marker.get_transform())
+        path = self._resolve_paths(key)
 
         edgecolor = self._resolve_color(key)
         facecolor = self._resolve_color(key, "fill")
@@ -150,6 +178,7 @@ class Dot(Scatter):
         kws = kws.copy()
 
         markers = self._resolve(data, "marker")
+        paths = self._marker_paths(markers)
 
         facecolors = self._resolve_color(data)
         edgecolors = self._resolve_color(data, "edge")
@@ -159,13 +188,6 @@ class Dot(Scatter):
 
         linewidths = self._resolve(data, "edgewidth")
         pointsize = self._resolve(data, "pointsize")
-
-        paths = []
-        path_cache = {}
-        for m in markers:
-            if m not in path_cache:
-                path_cache[m] = m.get_path().transformed(m.get_transform())
-            paths.append(path_cache[m])
 
         sizes = pointsize ** 2
         offsets = data[["x", "y"]].to_numpy()
@@ -187,7 +209,7 @@ class Dot(Scatter):
         key = {v: value for v in variables}
 
         marker = self._resolve(key, "marker")
-        path = marker.get_path().transformed(marker.get_transform())
+        path, = self._marker_paths([marker])
 
         facecolor = self._resolve_color(key)
         if marker.is_filled():
@@ -206,3 +228,46 @@ class Dot(Scatter):
             linewidths=[linewidth],
             transform=mpl.transforms.IdentityTransform(),
         )
+
+
+class Strip(Scatter):
+
+    def __init__(
+        self,
+        *,
+        color=Feature("C0"),
+        alpha=Feature(1),  # TODO auto alpha?
+        fill=Feature(True),
+        fillcolor=Feature(depend="color"),
+        fillalpha=Feature(.2),
+        marker=Feature(rc="scatter.marker"),
+        pointsize=Feature(5),  # TODO rcParam?
+        linewidth=Feature(.75),  # TODO rcParam?
+        width=.8,
+        **kwargs,  # TODO needed?
+    ):
+
+        super().__init__(**kwargs)
+
+        self.features = dict(
+            color=color,
+            alpha=alpha,
+            fill=fill,
+            fillcolor=fillcolor,
+            fillalpha=fillalpha,
+            marker=marker,
+            pointsize=pointsize,
+            linewidth=linewidth,
+        )
+
+        self.width = width
+
+    def _adjust(self, df):
+
+        rng = np.random.default_rng()  # TODO seed?
+        spacing = np.diff(np.unique(df[self.orient].dropna())).min()
+        extent = self.width * spacing / 2
+        jitter = rng.uniform(-extent, +extent, len(df))
+        values = df[self.orient] + jitter
+
+        return df.assign(**{self.orient: values})
