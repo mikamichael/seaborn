@@ -1,15 +1,13 @@
 from __future__ import annotations
 from dataclasses import dataclass
 
-import numpy as np
 import matplotlib as mpl
 
 from seaborn._marks.base import Mark, Feature
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from typing import Any, Union
-    from matplotlib.artist import Artist
+    from typing import Union
 
     MappableStr = Union[str, Feature]
     MappableFloat = Union[float, Feature]
