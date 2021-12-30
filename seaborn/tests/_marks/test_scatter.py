@@ -1,6 +1,5 @@
 from matplotlib.colors import to_rgba_array
 
-import pytest
 from numpy.testing import assert_array_equal
 
 from seaborn._core.plot import Plot
@@ -8,7 +7,6 @@ from seaborn._marks.scatter import Scatter
 
 
 class TestScatter:
-
 
     def check_offsets(self, points, x, y):
 
