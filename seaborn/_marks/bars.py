@@ -6,7 +6,7 @@ from seaborn._marks.base import Mark, Feature
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from typing import Union
+    from typing import Union, Optional
 
     MappableBool = Union[bool, Feature]
     MappableFloat = Union[float, Feature]
@@ -24,7 +24,7 @@ class Bar(Mark):
     width: MappableFloat = Feature(.8)
 
     baseline: float = 0
-    multiple: str = None
+    multiple: Optional[str] = None
 
     def _adjust(self, df):
 
