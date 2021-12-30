@@ -88,7 +88,6 @@ class Mark:
 
     @property
     def features(self):
-        # TODO filter by metadata?
         return {
             f.name: getattr(self, f.name) for f in fields(self)
             if isinstance(f.default, Feature)
@@ -96,7 +95,6 @@ class Mark:
 
     @property
     def grouping_vars(self):
-        # TODO filter to just Feature objects
         return [
             f.name for f in fields(self)
             if isinstance(f.default, Feature) and f.default.groups

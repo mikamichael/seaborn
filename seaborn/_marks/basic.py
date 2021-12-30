@@ -1,4 +1,6 @@
 from __future__ import annotations
+from dataclasses import dataclass
+
 import numpy as np
 import matplotlib as mpl
 
@@ -6,8 +8,12 @@ from seaborn._marks.base import Mark, Feature
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from typing import Any
+    from typing import Any, Union
     from matplotlib.artist import Artist
+
+    MappableStr = Union[str, Feature]
+    MappableFloat = Union[float, Feature]
+    MappableColor = Union[str, tuple, Feature]
 
 
 class Point(Mark):  # TODO types
@@ -140,38 +146,19 @@ class Point(Mark):  # TODO types
         )
 
 
+@dataclass
 class Line(Mark):
 
-    grouping_vars = ["color", "marker", "linestyle", "linewidth"]
-    supports = ["color", "marker", "linestyle", "linewidth"]
+    color: MappableColor = Feature("C0", groups=True)
+    alpha: MappableFloat = Feature(1, groups=True)
+    linewidth: MappableFloat = Feature(rc="lines.linewidth", groups=True)
+    linestyle: MappableStr = Feature(rc="lines.linestyle", groups=True)
 
-    def __init__(
-        self,
-        *,
-        color=Feature("C0"),
-        alpha=Feature(1),
-        linestyle=Feature(rc="lines.linestyle"),
-        linewidth=Feature(rc="lines.linewidth"),
-        marker=Feature(rc="lines.marker"),
-        # ... other features
-        sort=True,
-        **kwargs,  # TODO needed? Probably, but rather have artist_kws dict?
-    ):
-
-        super().__init__(**kwargs)
-
-        # TODO should this use SEMANTICS as the source of possible features?
-        self.features = dict(
-            color=color,
-            alpha=alpha,
-            linewidth=linewidth,
-            linestyle=linestyle,
-            marker=marker,
-        )
-
-        self.sort = sort
+    sort: bool = True
 
     def _plot_split(self, keys, data, ax, kws):
+
+        keys = self.resolve_features(keys)
 
         if self.sort:
             data = data.sort_values(self.orient)
@@ -179,37 +166,35 @@ class Line(Mark):
         line = mpl.lines.Line2D(
             data["x"].to_numpy(),
             data["y"].to_numpy(),
-            color=self._resolve_color(keys),
-            linewidth=self._resolve(keys, "linewidth"),
-            linestyle=self._resolve(keys, "linestyle"),
-            marker=self._resolve(keys, "marker"),
-            **kws
+            color=keys["color"],
+            linewidth=keys["linewidth"],
+            **kws,
         )
         ax.add_line(line)
 
     def _legend_artist(self, variables, value):
 
-        key = {v: value for v in variables}
+        key = self.resolve_features({v: value for v in variables})
 
         return mpl.lines.Line2D(
             [], [],
-            color=self._resolve_color(key),
-            linewidth=self._resolve(key, "linewidth"),
-            linestyle=self._resolve(key, "linestyle"),
-            marker=self._resolve(key, "marker"),
+            color=key["color"],
+            linewidth=key["linewidth"],
+            linestyle=key["linestyle"],
         )
 
 
+@dataclass
 class Area(Mark):
 
-    grouping_vars = ["color"]
-    supports = ["color"]
+    color: MappableColor = Feature("C0", groups=True)
+    alpha: MappableFloat = Feature(1, groups=True)
 
     def _plot_split(self, keys, data, ax, kws):
 
-        if "color" in keys:
-            # TODO as we need the kwarg to be facecolor, that should be the mappable?
-            kws["facecolor"] = self.mappings["color"](keys["color"])
+        keys = self.resolve_features(keys)
+        kws["facecolor"] = self._resolve_color(keys)
+        kws["edgecolor"] = self._resolve_color(keys)
 
         # TODO how will orient work here?
         # Currently this requires you to specify both orient and use y, xmin, xmin

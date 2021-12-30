@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     MappableBool = Union[bool, Feature]
     MappableFloat = Union[float, Feature]
     MappableString = Union[str, Feature]
-    MappableColor = Union[str, tuple, Feature]
+    MappableColor = Union[str, tuple, Feature]  # TODO
 
 
 @dataclass
