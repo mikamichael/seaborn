@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from seaborn._core.mappings import Semantic, SemanticMapping
     from seaborn._marks.base import Mark
     from seaborn._stats.base import Stat
+    from seaborn._core.move import Move
     from seaborn._core.typing import (
         DataSource,
         PaletteSpec,
@@ -202,6 +203,7 @@ class Plot:
         self,
         mark: Mark,
         stat: Stat | None = None,
+        move: Move | None = None,
         orient: Literal["x", "y", "v", "h"] | None = None,
         data: DataSource = None,
         **variables: VariableSpec,
@@ -216,6 +218,7 @@ class Plot:
         self._layers.append({
             "mark": mark,
             "stat": stat,
+            "move": move,
             "source": data,
             "variables": variables,
             "orient": {"v": "x", "h": "y"}.get(orient, orient),  # type: ignore
@@ -958,6 +961,7 @@ class Plotter:
         data = layer["data"]
         mark = layer["mark"]
         stat = layer["stat"]
+        move = layer["move"]
 
         pair_variables = p._pairspec.get("structure", {})
 
@@ -978,7 +982,8 @@ class Plotter:
                     grouping_vars = stat.grouping_vars + default_grouping_vars
                     df = self._apply_stat(df, grouping_vars, stat, orient)
 
-                df = mark._adjust(df)
+                if move is not None:
+                    df = move(df, orient)
 
                 df = self._unscale_coords(subplots, df)
 
