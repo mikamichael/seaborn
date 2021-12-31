@@ -79,6 +79,7 @@ SEMANTICS = {  # TODO should this be pluggable?
     # (or are they?); we might want to introduce a different concept?
     # Maybe call this VARIABLES and have e.g. ColorSemantic, BaselineVariable?
     "width": WidthSemantic(),
+    "baseline": WidthSemantic(),  # TODO
 }
 
 
