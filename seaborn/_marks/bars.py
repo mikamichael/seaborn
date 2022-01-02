@@ -54,7 +54,7 @@ class Bar(Mark):
         xys = data[["x", "y"]].to_numpy()
         data = self.resolve_features(data)
 
-        def xy_to_bar_geometry(x, y, w, b):
+        def coords_to_geometry(x, y, w, b):
             # TODO possible too slow with lots of bars (e.g. dense hist)
             if self.orient == "x":
                 w, h = w, y - b
@@ -67,7 +67,7 @@ class Bar(Mark):
         bars = []
         for i, (x, y) in enumerate(xys):
 
-            xy, w, h = xy_to_bar_geometry(x, y, data["width"][i], data["baseline"][i])
+            xy, w, h = coords_to_geometry(x, y, data["width"][i], data["baseline"][i])
             bar = mpl.patches.Rectangle(
                 xy=xy,
                 width=w,

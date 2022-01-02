@@ -15,6 +15,7 @@ from seaborn._compat import scale_factory, set_scale_obj
 from seaborn._core.rules import categorical_order
 from seaborn._core.data import PlotData
 from seaborn._core.subplots import Subplots
+from seaborn._core.groupby import Marshal
 from seaborn._core.mappings import (
     ColorSemantic,
     BooleanSemantic,
@@ -984,7 +985,14 @@ class Plotter:
                     df = self._apply_stat(df, grouping_vars, stat, orient)
 
                 if move is not None:
-                    df = move(df, orient)
+                    moves = move if isinstance(move, list) else [move]
+                    # TODO move width out of semantics and remove
+                    # TODO get grouping variables from move object?
+                    semantics = [v for v in SEMANTICS if v != "width"]
+                    grouping_vars = [orient] + semantics + ["col", "row", "group"]
+                    marshal = Marshal(grouping_vars, self._scales)
+                    for move in moves:
+                        df = move(df, orient, marshal)
 
                 df = self._unscale_coords(subplots, df)
 
@@ -1020,7 +1028,7 @@ class Plotter:
         # TODO rewrite this whole thing, I think we just need to avoid groupby/apply
         df = (
             df
-            .groupby(stat_grouping_vars)
+            .groupby(stat_grouping_vars, observed=True)
             .apply(stat)
         )
         # TODO next because of https://github.com/pandas-dev/pandas/issues/34809
@@ -1190,6 +1198,7 @@ class Plotter:
                     sub_vars = dict(zip(grouping_vars, key))
                     sub_vars.update(subplot_keys)
 
+                    # TODO need copy(deep=...) policy (here, above, anywhere else?)
                     yield sub_vars, df_subset.copy(), subplot["ax"]
 
         return split_generator
