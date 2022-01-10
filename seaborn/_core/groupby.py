@@ -4,51 +4,46 @@ import pandas as pd
 from seaborn._core.rules import categorical_order
 
 
-class Marshal:
+class GroupBy:
 
     def __init__(self, variables, scales):
 
-        self._variables = variables
+        # TODO call self.order, use in function that consumes this object?
+
         self._orderings = {
             var: scales[var].order if var in scales else None
             for var in variables
         }
 
-    def groupby(self, data, grouping_vars=None):
+    def _group(self, data):
 
-        if grouping_vars is None:
-            grouping_vars = self._variables
+        # TODO cache this? Or do in __init__? Do we need to call on different data?
 
         levels = {}
-        for var in (v for v in grouping_vars if v in data):
+        for var in (v for v in self._orderings if v in data):
             order = self._orderings.get(var)
             if order is None:
                 order = categorical_order(data[var])
             levels[var] = order
 
         groups = pd.MultiIndex.from_product(levels.values(), names=levels.keys())
-        return GroupBy(data, groups)
+        groupmap = {g: i for i, g in enumerate(groups)}
 
+        return groups, groupmap
 
-class GroupBy:
+    def agg(self, data, col, func, missing=False):
 
-    def __init__(self, data, groups):
-
-        self._data = data
-        self._groups = groups
-        self._groupmap = {g: i for i, g in enumerate(groups)}
-
-    def agg(self, col, func, missing=False):
+        groups, groupmap = self._group(data)
 
         res = (
-            self._data
-            .set_index(self._groups.names)
-            .groupby(self._groupmap)
+            data
+            .set_index(groups.names)
+            .groupby(groupmap)
             .agg({col: func})
         )
 
-        res = res.set_index(self._groups[res.index])
+        res = res.set_index(groups[res.index])
         if missing:
-            res = res.reindex(self._groups)
+            res = res.reindex(groups)
 
         return res.reset_index()

@@ -15,7 +15,7 @@ from seaborn._compat import scale_factory, set_scale_obj
 from seaborn._core.rules import categorical_order
 from seaborn._core.data import PlotData
 from seaborn._core.subplots import Subplots
-from seaborn._core.groupby import Marshal
+from seaborn._core.groupby import GroupBy
 from seaborn._core.mappings import (
     ColorSemantic,
     BooleanSemantic,
@@ -990,9 +990,9 @@ class Plotter:
                     # TODO get grouping variables from move object?
                     semantics = [v for v in SEMANTICS if v != "width"]
                     grouping_vars = [orient] + semantics + ["col", "row", "group"]
-                    marshal = Marshal(grouping_vars, self._scales)
+                    groupby = GroupBy(grouping_vars, self._scales)
                     for move in moves:
-                        df = move(df, orient, marshal)
+                        df = move(df, orient, groupby)
 
                 df = self._unscale_coords(subplots, df)
 

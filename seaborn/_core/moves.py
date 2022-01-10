@@ -80,57 +80,42 @@ class Dodge(Move):
     # TODO allow user to pass in grouping variables; e.g. with three variables
     # you may want to dodge by one of them (two strips) and then jitter the others
 
-    def __call__(self, data, orient, marshal):
+    def __call__(self, data, orient, groupby):
 
         # TODO resolve width, account for spacing
         # (We want convenience but need to let this work for, e.g. histograms. blegh)
         if "width" not in data:
             data["width"] = 0.8
 
-        # TODO allow user to specify during init
-        # TODO this is now repeated with what is in marshal,
-        # but we need to use it again in the merge -- UGH UGH UGH
-        # TODO note: weird stuff happens when we get this wrong!
-        grouping_vars = [v for v in marshal._variables if v in data]
+        # TODO allow user to specify during init, change _orderings to public attribute?
+        grouping_vars = [v for v in groupby._orderings if v in data]
+
+        # TODO what value to fill missing widths with for default behavior
+        missing_width = 0 if self.center else 0.8
 
         groups = (
-            marshal
-            .groupby(data)
-            .agg("width", "max", missing=True)
+            groupby
+            .agg(data, "width", "max", missing=not self.fill)
+            .fillna({"width": missing_width})
         )
 
-        # TODO need to consider facets too!
-        pos = groups[orient]
-        width = groups["width"]
+        def groupby_pos(s):
+            grouper = [groups[v] for v in [orient, "col", "row"] if v in data]
+            return s.groupby(grouper, sort=False, observed=True)
 
-        missing = width.isna()
-        if not self.fill:
-            width = width.fillna(0.8)  # TODO what value here
-
-        width_by_pos = width.groupby(pos, sort=False, observed=True)
-        max_by_pos = width_by_pos.max()
-        sum_by_pos = width_by_pos.sum()
-        width *= pos.map(max_by_pos / sum_by_pos)  # TODO map needed?
-
-        if self.center:
-            width = width[~missing]
-            each_pos_width = width.groupby(pos, sort=False, observed=True).sum()
-        else:
-            each_pos_width = max_by_pos
-
-        shift_left = pos.map(each_pos_width) / 2
-        recenter = width / 2
-
-        def offset(x):
+        def dodge(w):
             # TODO implement gap; scale by width factor?
             # TODO need to account for gap upstream too
-            return x.shift(1).add(self.gap).fillna(0).cumsum()
+            return w.shift(1).fillna(0).cumsum() + (w - w.sum()) / 2
 
-        offsets = width.groupby(pos, sort=False, observed=True).transform(offset)
+        new_widths = groupby_pos(groups["width"]).transform(lambda x: x / len(x))
+        movements = groupby_pos(new_widths).transform(dodge)
 
-        new_pos = pos - shift_left + offsets + recenter
-        groups["_dodged"] = new_pos
-        groups["width"] = width
+        if self.gap:
+            new_widths *= 1 - self.gap
+
+        groups["_dodged"] = groups[orient] + movements
+        groups["width"] = new_widths
 
         out = (
             data
