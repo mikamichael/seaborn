@@ -984,15 +984,21 @@ class Plotter:
                     grouping_vars = stat.grouping_vars + default_grouping_vars
                     df = self._apply_stat(df, grouping_vars, stat, orient)
 
+                # TODO get this from the Mark, otherwise scale by natural spacing?
+                # (But what about sparse categoricals?)
+                if "width" not in df:
+                    df["width"] = 0.8
+
                 if move is not None:
                     moves = move if isinstance(move, list) else [move]
                     # TODO move width out of semantics and remove
                     # TODO get grouping variables from move object?
                     semantics = [v for v in SEMANTICS if v != "width"]
-                    grouping_vars = [orient] + semantics + ["col", "row", "group"]
-                    groupby = GroupBy(grouping_vars, self._scales)
                     for move in moves:
-                        df = move(df, orient, groupby)
+                        semantic_groupers = move.by or semantics
+                        grouping_vars = [orient] + semantic_groupers + default_grouping_vars
+                        groupby = GroupBy(grouping_vars, self._scales)
+                        df = move(df, groupby, orient)
 
                 df = self._unscale_coords(subplots, df)
 

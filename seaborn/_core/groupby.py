@@ -9,7 +9,6 @@ class GroupBy:
     def __init__(self, variables, scales):
 
         # TODO call self.order, use in function that consumes this object?
-
         self._orderings = {
             var: scales[var].order if var in scales else None
             for var in variables
@@ -20,13 +19,16 @@ class GroupBy:
         # TODO cache this? Or do in __init__? Do we need to call on different data?
 
         levels = {}
-        for var in (v for v in self._orderings if v in data):
-            order = self._orderings.get(var)
-            if order is None:
-                order = categorical_order(data[var])
-            levels[var] = order
+        for var, order in self._orderings.items():
+            if var in data:
+                if order is None:
+                    order = categorical_order(data[var])
+                levels[var] = order
 
         groups = pd.MultiIndex.from_product(levels.values(), names=levels.keys())
+        # TODO note this breaks when len(levels) == 1 because pandas does not
+        # set a multiindex in agg(); possibly needs addressing
+        # (current usage does not encounter this edge case)
         groupmap = {g: i for i, g in enumerate(groups)}
 
         return groups, groupmap
