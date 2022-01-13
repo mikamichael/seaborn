@@ -6,7 +6,7 @@ import pandas as pd
 from pandas.testing import assert_series_equal
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 
-from seaborn._core.moves import Jitter, Dodge
+from seaborn._core.moves import Dodge
 from seaborn._core.rules import categorical_order
 from seaborn._core.groupby import GroupBy
 

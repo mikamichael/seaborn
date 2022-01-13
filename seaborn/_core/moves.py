@@ -2,37 +2,40 @@ from __future__ import annotations
 import numpy as np
 
 from dataclasses import dataclass
-from typing import Optional
-from pandas import DataFrame, Series
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import Literal, Optional
+    from pandas import DataFrame
+    from seaborn._core.groupby import GroupBy
 
 
 @dataclass
 class Move:
 
-    def __call__(self, data: DataFrame, orient: str) -> DataFrame:
-        # TODO type orient as a Literal["x", "y"]
+    def __call__(
+        self, data: DataFrame, groupby: GroupBy, orient: Literal["x", "y"],
+    ) -> DataFrame:
         raise NotImplementedError
 
 
 @dataclass
 class Jitter(Move):
 
-    # Alt name ... relwidth? rwidth? wspace?
-    width: Optional[float] = None
-    height: Optional[float] = None
+    width: float = 0
+    height: float = 0
 
-    x: Optional[float] = None
-    y: Optional[float] = None
+    x: float = 0
+    y: float = 0
+
     seed: Optional[int] = None
-
-    # TODO would be nice to put in base class but then it becomes the first positional arg
-    # and we want that to be width
-    by: Optional[list[str]] = None  # TODO or str, and convert to list internally (post_init?)
 
     # TODO what is the best way to have a reasonable default?
     # The problem is that "reasonable" seems dependent on the mark
 
-    def __call__(self, data: DataFrame, groupby, orient: str) -> DataFrame:
+    def __call__(
+        self, data: DataFrame, groupby: GroupBy, orient: Literal["x", "y"],
+    ) -> DataFrame:
 
         data = data.copy(deep=False)
 
@@ -62,10 +65,10 @@ class Jitter(Move):
             data[hcoord] = jitter(data[hcoord], data.get("height"), self.height)
 
         if self.x:
-            data["x"] = self._add_jitter(data["x"], 1, self.x)
+            data["x"] = jitter(data["x"], 1, self.x)
 
         if self.y:
-            data["y"] = self._add_jitter(data["y"], 1, self.y)
+            data["y"] = jitter(data["y"], 1, self.y)
 
         return data
 
@@ -73,17 +76,17 @@ class Jitter(Move):
 @dataclass
 class Dodge(Move):
 
-    empty: str = "keep"  # TODO annotate with Literal?
+    empty: Literal["keep", "drop", "fill"] = "keep"
     gap: float = 0
 
-    by: Optional[list[str]] = None  # TODO or str, and convert to list internally (post_init?)
+    # TODO accept just a str here?
+    by: Optional[list[str]] = None
 
-    # TODO allow user to pass in grouping variables; e.g. with three variables
-    # you may want to dodge by one of them (two strips) and then jitter the others
+    def __call__(
+        self, data: DataFrame, groupby: GroupBy, orient: Literal["x", "y"],
+    ) -> DataFrame:
 
-    def __call__(self, data, groupby, orient):
-
-        # TODO allow user to specify during init, change _orderings to public attribute?
+        # TODO change _orderings to public attribute?
         grouping_vars = [v for v in groupby._orderings if v in data]
 
         groups = (
@@ -107,11 +110,8 @@ class Dodge(Move):
             return w / norm * scale
 
         def widths_to_offsets(w):
-            # TODO implement gap; scale by width factor?
-            # TODO need to account for gap upstream too
             return w.shift(1).fillna(0).cumsum() + (w - w.sum()) / 2
 
-        # new_widths = groupby_pos(groups["width"]).transform(lambda w: w / len(w))
         new_widths = groupby_pos(groups["width"]).transform(scale_widths)
         offsets = groupby_pos(new_widths).transform(widths_to_offsets)
 
