@@ -263,7 +263,7 @@ class TestLayerAddition:
                 return self
 
         class MockMoveTrackOrient(Move):
-            def __call__(self, data, orient):
+            def __call__(self, data, groupby, orient):
                 self.orient_at_call = orient
                 return data
 
@@ -531,7 +531,8 @@ class TestPlotting:
 
         assert m.passed_keys[0] == {}
         assert m.passed_axes == [sub["ax"] for sub in p._subplots]
-        assert_frame_equal(m.passed_data[0], p._data.frame)
+        for col in p._data.frame:
+            assert_series_equal(m.passed_data[0][col], p._data.frame[col])
 
     def test_single_split_multi_layer(self, long_df):
 
@@ -556,7 +557,8 @@ class TestPlotting:
         for i, key in enumerate(split_keys):
 
             split_data = full_data[full_data[split_var] == key]
-            assert_frame_equal(mark.passed_data[i], split_data)
+            for col in split_data:
+                assert_series_equal(mark.passed_data[i][col], split_data[col])
 
     def check_splits_multi_vars(self, plot, mark, split_vars, split_keys):
 
@@ -575,7 +577,8 @@ class TestPlotting:
             for var, key in zip(split_vars, keys):
                 use_rows &= full_data[var] == key
             split_data = full_data[use_rows]
-            assert_frame_equal(mark.passed_data[i], split_data)
+            for col in split_data:
+                assert_series_equal(mark.passed_data[i][col], split_data[col])
 
     @pytest.mark.parametrize(
         "split_var", [
@@ -722,7 +725,7 @@ class TestPlotting:
         orig_df = long_df.copy(deep=True)
 
         class MockMove(Move):
-            def __call__(self, data, orient):
+            def __call__(self, data, groupby, orient):
                 return data.assign(x=data["x"] + 1)
 
         m = MockMark()
@@ -735,7 +738,7 @@ class TestPlotting:
     def test_movement_log_scale(self, long_df):
 
         class MockMove(Move):
-            def __call__(self, data, orient):
+            def __call__(self, data, groupby, orient):
                 return data.assign(x=data["x"] - 1)
 
         m = MockMark()

@@ -995,8 +995,10 @@ class Plotter:
                     # TODO get grouping variables from move object?
                     semantics = [v for v in SEMANTICS if v != "width"]
                     for move in moves:
-                        semantic_groupers = move.by or semantics
-                        grouping_vars = [orient] + semantic_groupers + default_grouping_vars
+                        semantic_groupers = getattr(move, "by", None) or semantics
+                        grouping_vars = (
+                            [orient] + semantic_groupers + default_grouping_vars
+                        )
                         groupby = GroupBy(grouping_vars, self._scales)
                         df = move(df, groupby, orient)
 
