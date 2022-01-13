@@ -44,8 +44,8 @@ class TestDodge(MoveFixtures):
         data = {
             "x": [0, 0, 1],
             "y": [1, 2, 3],
-            "width": [.8, .8, .8],
             "grp": ["a", "b", "b"],
+            "width": .8,
         }
         return pd.DataFrame(data)
 
@@ -53,7 +53,19 @@ class TestDodge(MoveFixtures):
     def toy_df_widths(self, toy_df):
 
         toy_df["width"] = [.8, .2, .4]
-        return pd.DataFrame(toy_df)
+        return toy_df
+
+    @pytest.fixture
+    def toy_df_facets(self):
+
+        data = {
+            "x": [0, 0, 1, 0, 1, 2],
+            "y": [1, 2, 3, 1, 2, 3],
+            "grp": ["a", "b", "a", "b", "a", "b"],
+            "col": ["x", "x", "x", "y", "y", "y"],
+            "width": .8,
+        }
+        return pd.DataFrame(data)
 
     def test_default(self, toy_df):
 
@@ -91,7 +103,7 @@ class TestDodge(MoveFixtures):
         assert_array_almost_equal(res["x"], [-.2, .2, 1.2])
         assert_array_almost_equal(res["width"], [.3, .3, .3])
 
-    def test_default_widths(self, toy_df_widths):
+    def test_widths_default(self, toy_df_widths):
 
         groupby = GroupBy(["x", "grp"], {})
         res = Dodge()(toy_df_widths, groupby, "x")
@@ -100,7 +112,7 @@ class TestDodge(MoveFixtures):
         assert_array_almost_equal(res["x"], [-.08, .32, 1.1])
         assert_array_almost_equal(res["width"], [.64, .16, .2])
 
-    def test_fill_widths(self, toy_df_widths):
+    def test_widths_fill(self, toy_df_widths):
 
         groupby = GroupBy(["x", "grp"], {})
         res = Dodge(empty="fill")(toy_df_widths, groupby, "x")
@@ -109,7 +121,7 @@ class TestDodge(MoveFixtures):
         assert_array_almost_equal(res["x"], [-.08, .32, 1])
         assert_array_almost_equal(res["width"], [.64, .16, .4])
 
-    def test_center_widths(self, toy_df_widths):
+    def test_widths_drop(self, toy_df_widths):
 
         groupby = GroupBy(["x", "grp"], {})
         res = Dodge(empty="drop")(toy_df_widths, groupby, "x")
@@ -118,7 +130,32 @@ class TestDodge(MoveFixtures):
         assert_array_almost_equal(res["x"], [-.08, .32, 1])
         assert_array_almost_equal(res["width"], [.64, .16, .2])
 
-    # Now slightly more complex examples
+    def test_faceted_default(self, toy_df_facets):
+
+        groupby = GroupBy(["x", "grp", "col"], {})
+        res = Dodge()(toy_df_facets, groupby, "x")
+
+        assert_array_equal(res["y"], [1, 2, 3, 1, 2, 3])
+        assert_array_almost_equal(res["x"], [-.2, .2, .8, .2, .8, 2.2])
+        assert_array_almost_equal(res["width"], [.4] * 6)
+
+    def test_faceted_fill(self, toy_df_facets):
+
+        groupby = GroupBy(["x", "grp", "col"], {})
+        res = Dodge(empty="fill")(toy_df_facets, groupby, "x")
+
+        assert_array_equal(res["y"], [1, 2, 3, 1, 2, 3])
+        assert_array_almost_equal(res["x"], [-.2, .2, 1, 0, 1, 2])
+        assert_array_almost_equal(res["width"], [.4, .4, .8, .8, .8, .8])
+
+    def test_faceted_drop(self, toy_df_facets):
+
+        groupby = GroupBy(["x", "grp", "col"], {})
+        res = Dodge(empty="drop")(toy_df_facets, groupby, "x")
+
+        assert_array_equal(res["y"], [1, 2, 3, 1, 2, 3])
+        assert_array_almost_equal(res["x"], [-.2, .2, 1, 0, 1, 2])
+        assert_array_almost_equal(res["width"], [.4] * 6)
 
     @pytest.mark.parametrize("grp", ["grp2", "grp3"])
     def test_single_semantic(self, df, grp):
