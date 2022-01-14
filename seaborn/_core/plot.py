@@ -985,9 +985,12 @@ class Plotter:
                     df = self._apply_stat(df, grouping_vars, stat, orient)
 
                 # TODO get this from the Mark, otherwise scale by natural spacing?
-                # (But what about sparse categoricals?)
+                # (But what about sparse categoricals? categorical always width/height=1
+                # Should default width/height be 1 and then get scaled by Mark.width?
                 if "width" not in df:
                     df["width"] = 0.8
+                if "height" not in df:
+                    df["height"] = 0.8
 
                 if move is not None:
                     moves = move if isinstance(move, list) else [move]

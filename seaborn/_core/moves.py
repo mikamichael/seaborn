@@ -1,7 +1,7 @@
 from __future__ import annotations
-import numpy as np
-
 from dataclasses import dataclass
+
+import numpy as np
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -37,38 +37,29 @@ class Jitter(Move):
         self, data: DataFrame, groupby: GroupBy, orient: Literal["x", "y"],
     ) -> DataFrame:
 
-        data = data.copy(deep=False)
+        # TODO is it a problem that GroupBy is not used for anything here?
+        # Should we type it as optional?
+
+        data = data.copy()
 
         rng = np.random.default_rng(self.seed)
 
-        wcoord = orient
-        hcoord = {"x": "y", "y": "x"}[orient]
-
-        def jitter(data, space, scale):
-
+        def jitter(data, col, scale):
             noise = rng.uniform(-.5, +.5, len(data))
+            offsets = noise * scale
+            return data[col] + offsets
 
-            # TODO this should be handled upstream to always define width/height
-            if space is None:
-                space = np.diff(np.unique(data.dropna())).min()
-
-            offsets = noise * scale * space
-            return data + offsets
-
-        # TODO how do we make it such that `width` as a settable parameter
-        # of the Mark (e.g. for boxplots) initializes the default in data here
+        w = orient
+        h = {"x": "y", "y": "x"}[orient]
 
         if self.width:
-            data[wcoord] = jitter(data[wcoord], data.get("width"), self.width)
-
+            data[w] = jitter(data, w, self.width * data["width"])
         if self.height:
-            data[hcoord] = jitter(data[hcoord], data.get("height"), self.height)
-
+            data[h] = jitter(data, h, self.height * data["height"])
         if self.x:
-            data["x"] = jitter(data["x"], 1, self.x)
-
+            data["x"] = jitter(data, "x", self.x)
         if self.y:
-            data["y"] = jitter(data["y"], 1, self.y)
+            data["y"] = jitter(data, "y", self.y)
 
         return data
 
